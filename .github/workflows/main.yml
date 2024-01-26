@@ -1,11 +1,16 @@
 name: Build
 
-on: [push, pull_request]
+on:
+  push:
+    tags:
+      - '*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:20220216
+    env:
+      file_path: out/Fizeau-*.zip
 
     steps:
     - name: Install 7z
@@ -21,7 +26,7 @@ jobs:
         make dist -j$(nproc)
         make dist-chl -j$(nproc)
 
-    - uses: actions/upload-artifact@master
+    - name: Release
+      uses: mikepenz/action-gh-release@v1
       with:
-        name: Fizeau
-        path: out/Fizeau-*.zip
+        files: ${{ env.file_path }}
