@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     container: devkitpro/devkita64:20220216
     env:
-      file_path: out/Fizeau-*.zip
+      file_path: SdOut/Fizeau-*.zip
 
     steps:
     - name: Install 7z
