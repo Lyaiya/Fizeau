@@ -1,67 +1,219 @@
-export FZ_VERSION =    2.5.3
-export FZ_COMMIT  =    $(shell git rev-parse --short HEAD)
-export FZ_TID     =    0100000000000F12
+#---------------------------------------------------------------------------------
+.SUFFIXES:
+#---------------------------------------------------------------------------------
 
-# Vscode fails to parse non-english error codes
-export LANG       =    en
-
-export TOPDIR     =    $(CURDIR)
-OUT               =    out
-
-# -----------------------------------------------
-
-ifneq (, $(strip $(shell git status --porcelain 2>/dev/null)))
-export FZ_COMMIT    :=    $(addsuffix -dirty,$(FZ_COMMIT))
+ifeq ($(strip $(DEVKITPRO)),)
+$(error "Please set DEVKITPRO in your environment. export DEVKITPRO=<path to>/devkitpro")
 endif
 
-DIST_TARGET       =    $(OUT)/Fizeau-$(FZ_VERSION)-$(FZ_COMMIT).zip
+TOPDIR ?= $(CURDIR)
+include $(DEVKITPRO)/libnx/switch_rules
 
-# -----------------------------------------------
+#---------------------------------------------------------------------------------
+# TARGET is the name of the output
+# BUILD is the directory where object files & intermediate files will be placed
+# SOURCES is a list of directories containing source code
+# DATA is a list of directories containing data files
+# INCLUDES is a list of directories containing header files
+# ROMFS is the directory containing data to be added to RomFS, relative to the Makefile (Optional)
+#
+# NO_ICON: if set to anything, do not use icon.
+# NO_NACP: if set to anything, no .nacp file is generated.
+# APP_TITLE is the name of the app stored in the .nacp file (Optional)
+# APP_AUTHOR is the author of the app stored in the .nacp file (Optional)
+# APP_VERSION is the version of the app stored in the .nacp file (Optional)
+# APP_TITLEID is the titleID of the app stored in the .nacp file (Optional)
+# ICON is the filename of the icon (.jpg), relative to the project folder.
+#   If not set, it attempts to use one of the following (in this order):
+#     - <Project name>.jpg
+#     - icon.jpg
+#     - <libnx folder>/default_icon.jpg
+#
+# CONFIG_JSON is the filename of the NPDM config file (.json), relative to the project folder.
+#   If not set, it attempts to use one of the following (in this order):
+#     - <Project name>.json
+#     - config.json
+#   If a JSON file is provided or autodetected, an ExeFS PFS0 (.nsp) is built instead
+#   of a homebrew executable (.nro). This is intended to be used for sysmodules.
+#   NACP building is skipped as well.
+#---------------------------------------------------------------------------------
+APP_TITLE	:=	Fizeau
+APP_VERSION	:=	v2.5.3
+ifeq ($(RELEASE),)
+	APP_VERSION	:=	$(APP_VERSION)-$(shell git describe --always)
+endif
+APP_AUTHOR  :=  averne
 
-MODULES           =    application sysmodule overlay
+TARGET		:=	$(APP_TITLE)
+BUILD		:=	build
+SOURCES		:=	src libs/inih/
+DATA		:=	data
+INCLUDES	:=	include libs/libtesla/include libs/inih/
 
-.PHONY: all dist clean mrproper $(MODULES)
+NO_ICON		:=  1
 
-all: $(MODULES)
-	@:
+#---------------------------------------------------------------------------------
+# options for code generation
+#---------------------------------------------------------------------------------
+ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
-dist: $(DIST_TARGET)
-	@:
+CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
+			$(ARCH) $(DEFINES)
 
-$(DIST_TARGET): | all
-	@rm -rf $(OUT)/Fizeau-?.?.?-*.zip
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__ -DAPPTITLE=\"$(APP_TITLE)\" -DVERSION=\"$(APP_VERSION)\"
 
-	@mkdir -p $(OUT)/config/Fizeau
-	@mkdir -p $(OUT)/switch/Fizeau
-	@cp misc/default.ini $(OUT)/config/Fizeau/config.ini
-	@cp application/out/Fizeau.nro $(OUT)/switch/Fizeau/Fizeau.nro
+CXXFLAGS	:= $(CFLAGS) -fexceptions -std=c++20
 
-	@mkdir -p $(OUT)/switch/.overlays
-	@cp overlay/out/Fizeau.ovl $(OUT)/switch/.overlays/Fizeau.ovl
+ASFLAGS	:=	-g $(ARCH)
+LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-	@mkdir -p $(OUT)/atmosphere/contents/$(FZ_TID)/flags
-	@cp sysmodule/out/Fizeau.nsp $(OUT)/atmosphere/contents/$(FZ_TID)/exefs.nsp
-	@cp sysmodule/toolbox.json $(OUT)/atmosphere/contents/$(FZ_TID)/toolbox.json
-	@touch $(OUT)/atmosphere/contents/$(FZ_TID)/flags/boot2.flag
+LIBS	:= -lnx
 
-	@7z a $@ ./$(OUT)/atmosphere ./$(OUT)/config ./$(OUT)/switch >/dev/null
-	@rm -r $(OUT)/atmosphere $(OUT)/config $(OUT)/switch
-	@echo Compressed release to $@
+#---------------------------------------------------------------------------------
+# list of directories containing libraries, this must be the top level containing
+# include and lib
+#---------------------------------------------------------------------------------
+LIBDIRS	:= $(PORTLIBS) $(LIBNX)
 
+#---------------------------------------------------------------------------------
+# no real need to edit anything past this point unless you need to add additional
+# rules for different file extensions
+#---------------------------------------------------------------------------------
+ifneq ($(BUILD),$(notdir $(CURDIR)))
+#---------------------------------------------------------------------------------
+
+export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export TOPDIR	:=	$(CURDIR)
+
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+
+export DEPSDIR	:=	$(CURDIR)/$(BUILD)
+
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
+BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
+
+#---------------------------------------------------------------------------------
+# use CXX for linking C++ projects, CC for standard C
+#---------------------------------------------------------------------------------
+ifeq ($(strip $(CPPFILES)),)
+#---------------------------------------------------------------------------------
+	export LD	:=	$(CC)
+#---------------------------------------------------------------------------------
+else
+#---------------------------------------------------------------------------------
+	export LD	:=	$(CXX)
+#---------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------
+
+export OFILES_BIN	:=	$(addsuffix .o,$(BINFILES))
+export OFILES_SRC	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
+export OFILES 	:=	$(OFILES_BIN) $(OFILES_SRC)
+export HFILES_BIN	:=	$(addsuffix .h,$(subst .,_,$(BINFILES)))
+
+export INCLUDE	:=	$(foreach dir,$(INCLUDES),-I$(CURDIR)/$(dir)) \
+			$(foreach dir,$(LIBDIRS),-I$(dir)/include) \
+			-I$(CURDIR)/$(BUILD)
+
+export LIBPATHS	:=	$(foreach dir,$(LIBDIRS),-L$(dir)/lib)
+
+ifeq ($(strip $(CONFIG_JSON)),)
+	jsons := $(wildcard *.json)
+	ifneq (,$(findstring $(TARGET).json,$(jsons)))
+		export APP_JSON := $(TOPDIR)/$(TARGET).json
+	else
+		ifneq (,$(findstring config.json,$(jsons)))
+			export APP_JSON := $(TOPDIR)/config.json
+		endif
+	endif
+else
+	export APP_JSON := $(TOPDIR)/$(CONFIG_JSON)
+endif
+
+ifeq ($(strip $(ICON)),)
+	icons := $(wildcard *.jpg)
+	ifneq (,$(findstring $(TARGET).jpg,$(icons)))
+		export APP_ICON := $(TOPDIR)/$(TARGET).jpg
+	else
+		ifneq (,$(findstring icon.jpg,$(icons)))
+			export APP_ICON := $(TOPDIR)/icon.jpg
+		endif
+	endif
+else
+	export APP_ICON := $(TOPDIR)/$(ICON)
+endif
+
+ifeq ($(strip $(NO_ICON)),)
+	export NROFLAGS += --icon=$(APP_ICON)
+endif
+
+ifeq ($(strip $(NO_NACP)),)
+	export NROFLAGS += --nacp=$(CURDIR)/$(TARGET).nacp
+endif
+
+ifneq ($(APP_TITLEID),)
+	export NACPFLAGS += --titleid=$(APP_TITLEID)
+endif
+
+ifneq ($(ROMFS),)
+	export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
+endif
+
+.PHONY: $(BUILD) clean all
+
+#---------------------------------------------------------------------------------
+all: $(BUILD)
+
+
+$(BUILD):
+	@[ -d $@ ] || mkdir -p $@
+	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@rm -rf $(CURDIR)/SdOut
+	@mkdir -p $(CURDIR)/SdOut/switch/.overlays/lang/$(APP_TITLE)
+	@wget $(shell curl -s https://api.github.com/repos/averne/Fizeau/releases/latest|grep 'browser_'|cut -d\" -f4|head -1) -O $(CURDIR)/SdOut/Fizeau-latest.zip
+	@unzip $(CURDIR)/SdOut/Fizeau-latest.zip -d $(CURDIR)/SdOut/
+	@rm -rf $(CURDIR)/SdOut/switch/.overlays/*.ovl
+	@cp -r $(TARGET).ovl $(CURDIR)/SdOut/switch/.overlays/
+	@cp -r $(CURDIR)/lang/* $(CURDIR)/SdOut/switch/.overlays/lang/$(APP_TITLE)/
+	@cd $(CURDIR)/SdOut; zip -r -q -9 $(APP_TITLE).zip atmosphere config switch; cd $(CURDIR)
+
+#---------------------------------------------------------------------------------
 clean:
-	@rm -rf out
+	@rm -fr $(BUILD) $(CURDIR)/SdOut $(TARGET).ovl $(TARGET).nro $(TARGET).nacp $(TARGET).elf
 
-mrproper: clean
-	@for dir in $(MODULES); do $(MAKE) --no-print-directory -C $$dir mrproper; done
 
-application:
-	@$(MAKE) -s -C $@ $(filter-out $(MODULES) dist,$(MAKECMDGOALS)) --no-print-directory
+#---------------------------------------------------------------------------------
+else
+.PHONY:	all
 
-sysmodule:
-	@$(MAKE) -s -C $@ $(filter-out $(MODULES) dist,$(MAKECMDGOALS)) --no-print-directory
+DEPENDS	:=	$(OFILES:.o=.d)
 
-overlay:
-	@$(MAKE) -s -C $@ $(filter-out $(MODULES) dist,$(MAKECMDGOALS)) --no-print-directory
+#---------------------------------------------------------------------------------
+# main targets
+#---------------------------------------------------------------------------------
+all	:	 $(OUTPUT).ovl
 
-%:
-	@:
+$(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp 
+	@elf2nro $< $@ $(NROFLAGS)
+	@echo "built ... $(notdir $(OUTPUT).ovl)"
+
+$(OUTPUT).elf	:	$(OFILES)
+
+$(OFILES_SRC)	: $(HFILES_BIN)
+
+#---------------------------------------------------------------------------------
+# you need a rule like this for each extension you use as binary data
+#---------------------------------------------------------------------------------
+%.bin.o	%_bin.h :	%.bin
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@$(bin2o)
+
+-include $(DEPENDS)
+
+#---------------------------------------------------------------------------------------
+endif
+#---------------------------------------------------------------------------------------

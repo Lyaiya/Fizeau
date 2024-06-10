@@ -1,12 +1,6 @@
-[submodule "lib/imgui/imgui"]
-	path = lib/imgui/imgui
-	url = https://github.com/ocornut/imgui.git
-[submodule "lib/inih/inih"]
-	path = lib/inih/inih
+[submodule "libs/inih"]
+	path = libs/inih
 	url = https://github.com/benhoyt/inih.git
-[submodule "lib/libtesla"]
-	path = lib/libtesla
-	url = https://github.com/WerWolv/libtesla.git
-[submodule "lib/nvjpg/oss-nvjpg"]
-	path = lib/nvjpg/oss-nvjpg
-	url = https://github.com/averne/oss-nvjpg.git
+[submodule "libs/libtesla"]
+	path = libs/libtesla
+	url = https://github.com/zdm65477730/libtesla.git
