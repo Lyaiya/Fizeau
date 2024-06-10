@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2020 averne
+ * Copyright (c) 2024 averne
  *
  * This file is part of Fizeau.
  *
@@ -33,7 +33,7 @@ Result ommInitialize(void);
 void ommExit();
 
 Result ommGetOperationMode(AppletOperationMode *mode);
-Result ommGetOperationModeChangeEvent(Event *out);
+Result ommGetOperationModeChangeEvent(Event *out, bool autoclear);
 
 #ifdef __cplusplus
 } // extern "C"

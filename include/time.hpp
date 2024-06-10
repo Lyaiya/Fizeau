@@ -1,4 +1,4 @@
-// Copyright (C) 2020 averne
+// Copyright (c) 2024 averne
 //
 // This file is part of Fizeau.
 //
@@ -19,6 +19,7 @@
 
 #include <cstdint>
 #include <switch.h>
+
 #include "types.h"
 
 namespace fz {
@@ -26,32 +27,42 @@ namespace fz {
 class Clock {
     public:
         static Result initialize() {
-            Result rc = 0;
-            if (R_FAILED(rc = smInitialize())) return rc;
-            if (R_FAILED(rc = timeInitialize())) {
-                smExit();
-                return rc;
-            }
+            Result rc;
+            if (rc = timeInitialize(); R_FAILED(rc))
+                goto exit;
+
+            Clock::tick = armGetSystemTick();
 
             std::uint64_t time;
-            TimeCalendarTime caltime;
-            Clock::tick = armGetSystemTick();
-            if (R_SUCCEEDED(rc = timeGetCurrentTime(TimeType_Default, &time)) && R_SUCCEEDED(rc = timeToCalendarTimeWithMyRule(time, &caltime, nullptr))) {
-                Clock::timestamp = (60 * 60 * caltime.hour + 60 * caltime.minute + caltime.second) * UINT64_C(1000) * UINT64_C(1000) * UINT64_C(1000);
-            }
+            if (rc = timeGetCurrentTime(TimeType_Default, &time); R_FAILED(rc))
+                goto exit;
 
-            smExit();
+            TimeCalendarTime caltime;
+            if (rc = timeToCalendarTimeWithMyRule(time, &caltime, nullptr); R_FAILED(rc))
+                goto exit;
+
+            Clock::timestamp = 60 * 60 * caltime.hour + 60 * caltime.minute + caltime.second;
+
+            rc = 0;
+
+exit:
             timeExit();
             return rc;
         }
 
-        static Time get_current_time() {
-            auto ts = Clock::timestamp + (armTicksToNs(armGetSystemTick() - Clock::tick));
-            return {static_cast<std::uint8_t>((ts / (UINT64_C(1000) * UINT64_C(1000) * UINT64_C(1000) * UINT64_C(60) * UINT64_C(60))) % 24),
-                static_cast<std::uint8_t>((ts / (UINT64_C(1000) * UINT64_C(1000) * UINT64_C(1000) * UINT64_C(60))) % 60), static_cast<std::uint8_t>((ts / (UINT64_C(1000) * UINT64_C(1000) * UINT64_C(1000) * UINT64_C(60) * UINT64_C(60))) % 60)};
+        static std::uint64_t get_current_timestamp() {
+            return (Clock::timestamp + armTicksToNs(armGetSystemTick() - Clock::tick) / 1'000'000'000) % (24*60*60);
         }
 
-        static bool is_in_interval(const Time &cur, const Time &lo, const Time &hi) {
+        static Time get_current_time() {
+            return from_timestamp(Clock::get_current_timestamp());
+        }
+
+        static constexpr bool is_in_interval(const Time &cur, const Time &lo, const Time &hi) {
+            return (lo <= cur) && (cur < hi);
+        }
+
+        static constexpr bool is_in_interval(const Timestamp &cur, const Timestamp &lo, const Timestamp &hi) {
             return (lo <= cur) && (cur < hi);
         }
 

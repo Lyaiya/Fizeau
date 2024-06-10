@@ -1,4 +1,4 @@
-// Copyright (C) 2024 averne
+// Copyright (c) 2024 averne
 //
 // This file is part of Fizeau.
 //
@@ -17,11 +17,10 @@
 
 #pragma once
 
-#include <tesla.hpp>
-#include <common.hpp>
-
 #include <memory>
 #include <utility>
+#include <tesla.hpp>
+#include <common.hpp>
 
 namespace fz {
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2020 averne
+// Copyright (c) 2024 averne
 //
 // This file is part of Fizeau.
 //
@@ -17,45 +17,62 @@
 
 #pragma once
 
+#include <array>
 #include <string_view>
 #include <switch.h>
-#include <strings.h>
 
 #include "fizeau.h"
 #include "types.h"
 
-namespace fz::cfg {
+namespace fz {
 
-struct Config {
-    bool active = true, has_active_override = false;
+class Config {
+    public:
+        constexpr static FizeauSettings default_settings = {
+            .temperature = DEFAULT_TEMP,
+            .gamma       = DEFAULT_GAMMA,
+            .saturation  = DEFAULT_SAT,
+            .luminance   = DEFAULT_LUMA,
+            .range       = DEFAULT_RANGE,
+            .filter      = ColorFilter_None,
+        };
 
-    FizeauProfile cur_profile = {};
-    FizeauProfileId cur_profile_id = FizeauProfileId_Invalid,
-        active_internal_profile = FizeauProfileId_Invalid, active_external_profile = FizeauProfileId_Invalid;
-    bool is_editing_day_profile = false, is_editing_night_profile = false;
+    public:
+        constinit static inline std::array config_locations = {
+            std::string_view("/switch/Fizeau/config.ini"),
+            std::string_view("/config/Fizeau/config.ini"),
+        };
 
-    Time dusk_begin, dusk_end;
-    Time dawn_begin, dawn_end;
+    public:
+        bool active = true, has_active_override = false;
 
-    Temperature temperature_day, temperature_night;
-    ColorFilter filter_day,      filter_night;
-    Gamma       gamma_day,       gamma_night;
-    Saturation  sat_day,         sat_night;
-    Luminance   luminance_day,   luminance_night;
-    ColorRange  range_day,       range_night;
-    Brightness  brightness_day,  brightness_night;
+        FizeauProfileId cur_profile_id = FizeauProfileId_Invalid,
+            internal_profile = FizeauProfileId_Profile1, external_profile = FizeauProfileId_Profile1;
+        bool is_editing_day_profile = false, is_editing_night_profile = false;
 
-    Time dimming_timeout;
+        FizeauProfile profile = {
+            .day_settings   = Config::default_settings,
+            .night_settings = Config::default_settings,
+        };
+
+        void (*parse_profile_switch_action)(Config *, FizeauProfileId) = nullptr;
+
+    public:
+        static int ini_handler(void *user, const char *section, const char *name, const char *value);
+        static std::string_view find_config();
+
+    public:
+        void read();
+        void write();
+        std::string make();
+
+        Result update();
+        Result apply();
+        Result reset();
+        Result open_profile(FizeauProfileId id);
+
+    private:
+        void sanitize_profile();
 };
 
-std::string_view find_config();
-Config read();
-std::string make(Config &config);
-void dump(Config &config);
-
-Result update(Config &config);
-Result apply(Config &config);
-Result reset(Config &config);
-Result open_profile(Config &cfg, FizeauProfileId id);
-
-} // namespace fz::cfg
+} // namespace fz

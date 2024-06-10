@@ -118,9 +118,9 @@ FizeauOverlayGui::~FizeauOverlayGui() {
 
 tsl::elm::Element *FizeauOverlayGui::createUI() {
     this->info_header = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-        renderer->drawString(format("EditProfileFizeauOverlayGuiCustomDrawerText"_tr, static_cast<std::uint32_t>(this->config.cur_profile_id) + 1).c_str(),
+        renderer->drawString(format("EditProfileFizeauOverlayGuiCustomDrawerText"_tr.c_str(), static_cast<std::uint32_t>(this->config.cur_profile_id) + 1).c_str(),
             false, x, y + 20, 20, renderer->a(0xffff));
-        renderer->drawString(format("ProfileInPeriodFizeauOverlayGuiCustomDrawerText"_tr, this->is_day ? "ProfileInPeriodDayFizeauOverlayGuiCustomDrawerText"_tr.c_str() : "ProfileInPeriodNightFizeauOverlayGuiCustomDrawerText"_tr.c_str()).c_str(),
+        renderer->drawString(format("ProfileInPeriodFizeauOverlayGuiCustomDrawerText"_tr.c_str(), this->is_day ? "ProfileInPeriodDayFizeauOverlayGuiCustomDrawerText"_tr.c_str() : "ProfileInPeriodNightFizeauOverlayGuiCustomDrawerText"_tr.c_str()).c_str(),
             false, x, y + 45, 20, renderer->a(0xffff));
     });
 
@@ -275,13 +275,13 @@ void FizeauOverlayGui::update() {
 
     this->is_day = Clock::is_in_interval(this->config.profile.dawn_begin, this->config.profile.dusk_begin);
 
-    this->temp_header->setText(format("TemperatureFizeauOverlayGuiCategoryHeaderText"_tr,
+    this->temp_header->setText(format("TemperatureFizeauOverlayGuiCategoryHeaderText"_tr.c_str(),
         this->is_day ? this->config.profile.day_settings.temperature : this->config.profile.night_settings.temperature));
-    this->gamma_header->setText(format("GammaFizeauOverlayGuiCategoryHeaderText"_tr,
+    this->gamma_header->setText(format("GammaFizeauOverlayGuiCategoryHeaderText"_tr.c_str(),
         this->is_day ? this->config.profile.day_settings.gamma       : this->config.profile.night_settings.gamma));
-    this->sat_header->setText(format("SaturationFizeauOverlayGuiCategoryHeaderText"_tr,
+    this->sat_header->setText(format("SaturationFizeauOverlayGuiCategoryHeaderText"_tr.c_str(),
         this->is_day ? this->config.profile.day_settings.saturation  : this->config.profile.night_settings.saturation));
-    this->luma_header->setText(format("LuminanceFizeauOverlayGuiCategoryHeaderText"_tr,
+    this->luma_header->setText(format("LuminanceFizeauOverlayGuiCategoryHeaderText"_tr.c_str(),
         this->is_day ? this->config.profile.day_settings.luminance   : this->config.profile.night_settings.luminance));
 }
 
