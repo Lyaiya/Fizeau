@@ -1,0 +1,14 @@
+---
+  name: release
+
+  on:
+    workflow_dispatch:
+    push:
+      tags:
+        - '*'
+
+  jobs:
+    release:
+      uses: Lyaiya/github-workflow/.github/workflows/switch-release.yml@main
+      with:
+        file-path: SdOut/Fizeau.zip
